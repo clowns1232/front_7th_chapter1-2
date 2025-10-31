@@ -14,6 +14,7 @@ interface GenerateRecurringDatesParams {
 }
 
 const MS_IN_DAY = 24 * 60 * 60 * 1000;
+const MAX_END_DATE_STRING = '2025-12-31';
 
 const parseISODate = (dateString: string) => {
   const [year, month, day] = dateString.split('-').map(Number);
@@ -80,6 +81,7 @@ export const generateRecurringDates = ({
   maxOccurrences = 100,
 }: GenerateRecurringDatesParams) => {
   const { type, interval, endDate: repeatEndDate } = repeat;
+  const maxEndDate = parseISODate(MAX_END_DATE_STRING);
 
   if (type === 'none') {
     return [startDate];
@@ -90,7 +92,12 @@ export const generateRecurringDates = ({
   occurrences.push(formatUTCDate(start));
 
   const limitDateString = endDate ?? repeatEndDate;
-  const limitDate = limitDateString ? parseISODate(limitDateString) : null;
+  let limitDate = maxEndDate;
+
+  if (limitDateString) {
+    const candidate = parseISODate(limitDateString);
+    limitDate = candidate.getTime() > maxEndDate.getTime() ? maxEndDate : candidate;
+  }
 
   let current = start;
   const startDay = start.getUTCDate();
@@ -113,7 +120,7 @@ export const generateRecurringDates = ({
       break;
     }
 
-    if (limitDate && next.getTime() > limitDate.getTime()) {
+    if (next.getTime() > limitDate.getTime()) {
       break;
     }
 

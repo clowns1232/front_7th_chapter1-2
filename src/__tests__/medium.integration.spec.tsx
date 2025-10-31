@@ -1,6 +1,6 @@
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { render, screen, within, act } from '@testing-library/react';
+import { render, screen, within, act, waitFor } from '@testing-library/react';
 import { UserEvent, userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { SnackbarProvider } from 'notistack';
@@ -225,6 +225,223 @@ describe('일정 뷰', () => {
 
     const weekView = within(await screen.findByTestId('week-view'));
     expect(await weekView.findByLabelText('반복 일정 아이콘')).toBeInTheDocument();
+  });
+});
+
+describe('반복 일정', () => {
+  it('반복 일정을 생성할 때 반복 옵션과 종료일을 설정할 수 있다', async () => {
+    vi.setSystemTime(new Date('2025-10-01'));
+    setupMockHandlerCreation();
+
+    const { user } = setup(<App />);
+
+    await user.click(screen.getAllByText('일정 추가')[0]);
+
+    await user.type(screen.getByLabelText('제목'), '반복 테스트');
+    await user.type(screen.getByLabelText('날짜'), '2025-10-02');
+    await user.type(screen.getByLabelText('시작 시간'), '09:00');
+    await user.type(screen.getByLabelText('종료 시간'), '10:00');
+    await user.type(screen.getByLabelText('설명'), '반복 테스트 설명');
+    await user.type(screen.getByLabelText('위치'), '회의실 B');
+    await user.click(screen.getByLabelText('카테고리'));
+    await user.click(within(screen.getByLabelText('카테고리')).getByRole('combobox'));
+    await user.click(screen.getByRole('option', { name: '업무-option' }));
+
+    await user.click(screen.getByLabelText('반복 일정'));
+
+    const repeatTypeField = (await screen.findByTestId('repeat-type-select')) as HTMLSelectElement;
+    await user.selectOptions(repeatTypeField, 'monthly');
+
+    const intervalField = screen.getByLabelText('반복 간격');
+    await user.clear(intervalField);
+    await user.type(intervalField, '2');
+
+    const endDateField = screen.getByLabelText('반복 종료일');
+    expect(endDateField).toHaveAttribute('max', '2025-12-31');
+    await user.clear(endDateField);
+    await user.type(endDateField, '2025-12-31');
+
+    await user.click(screen.getByTestId('event-submit-button'));
+
+    const eventList = within(screen.getByTestId('event-list'));
+    expect(await eventList.findByText('반복: 2월마다 (종료: 2025-12-31)')).toBeInTheDocument();
+  });
+});
+
+describe('반복 일정 수정/삭제', () => {
+  afterEach(() => {
+    server.resetHandlers();
+  });
+
+  const recurringEvent: Event = {
+    id: 'repeat-id',
+    title: '주간 점검',
+    date: '2025-10-02',
+    startTime: '10:00',
+    endTime: '11:00',
+    description: '반복 회의',
+    location: '회의실 A',
+    category: '업무',
+    repeat: { type: 'weekly', interval: 1, endDate: '2025-12-31' },
+    notificationTime: 10,
+  };
+
+  it('반복 일정 단일 수정 시 반복 정보가 제거되고 아이콘이 사라진다', async () => {
+    vi.setSystemTime(new Date('2025-10-01'));
+
+    const updateScopes: Array<string | undefined> = [];
+    let events: Event[] = [recurringEvent];
+
+    server.use(
+      http.get('/api/events', () => {
+        return HttpResponse.json({ events });
+      }),
+      http.put('/api/events/repeat-id', async ({ request }) => {
+        const body = (await request.json()) as Event & { scope?: 'instance' | 'series' };
+        updateScopes.push(body.scope);
+        const { scope: _, ...eventPayload } = body;
+        events = [
+          {
+            ...(eventPayload as Event),
+            id: 'repeat-id-instance',
+            repeat: { type: 'none', interval: 0 },
+          },
+        ];
+
+        return HttpResponse.json({ event: events[0] });
+      })
+    );
+
+    const { user } = setup(<App />);
+
+    await screen.findByText('일정 로딩 완료!');
+
+    await user.click(await screen.findByLabelText('Edit event'));
+
+    const scopeDialog = await screen.findByRole('dialog', { name: '반복 일정 편집' });
+    await user.click(within(scopeDialog).getByRole('button', { name: '예' }));
+
+    await waitFor(() => expect(updateScopes).toContain('instance'));
+
+    await user.clear(screen.getByLabelText('제목'));
+    await user.type(screen.getByLabelText('제목'), '단일 수정된 회의');
+
+    await user.click(screen.getByTestId('event-submit-button'));
+
+    const eventList = within(await screen.findByTestId('event-list'));
+    expect(eventList.getByText('단일 수정된 회의')).toBeInTheDocument();
+    expect(eventList.queryByLabelText('반복 일정 아이콘')).not.toBeInTheDocument();
+    expect(eventList.queryByText(/반복:/)).not.toBeInTheDocument();
+  });
+
+  it('반복 일정 전체 수정 시 반복 아이콘과 정보가 유지된다', async () => {
+    vi.setSystemTime(new Date('2025-10-01'));
+
+    const updateScopes: Array<string | undefined> = [];
+    let events: Event[] = [recurringEvent];
+
+    server.use(
+      http.get('/api/events', () => {
+        return HttpResponse.json({ events });
+      }),
+      http.put('/api/events/repeat-id', async ({ request }) => {
+        const body = (await request.json()) as Event & { scope?: 'instance' | 'series' };
+        updateScopes.push(body.scope);
+        const { scope: _, ...eventPayload } = body;
+        events = [
+          {
+            ...(eventPayload as Event),
+            repeat: {
+              ...(eventPayload as Event).repeat,
+            },
+          },
+        ];
+
+        return HttpResponse.json({ event: events[0] });
+      })
+    );
+
+    const { user } = setup(<App />);
+
+    await screen.findByText('일정 로딩 완료!');
+
+    await user.click(await screen.findByLabelText('Edit event'));
+
+    const scopeDialog = await screen.findByRole('dialog', { name: '반복 일정 편집' });
+    await user.click(within(scopeDialog).getByRole('button', { name: '아니오' }));
+
+    await waitFor(() => expect(updateScopes).toContain('series'));
+
+    const intervalField = await screen.findByLabelText('반복 간격');
+    await user.clear(intervalField);
+    await user.type(intervalField, '3');
+
+    await user.click(screen.getByTestId('event-submit-button'));
+
+    const eventList = within(await screen.findByTestId('event-list'));
+    expect(eventList.getByText('주간 점검')).toBeInTheDocument();
+    expect(await eventList.findByLabelText('반복 일정 아이콘')).toBeInTheDocument();
+    expect(eventList.getByText('반복: 3주마다 (종료: 2025-12-31)')).toBeInTheDocument();
+  });
+
+  it('반복 일정 단일 삭제 시 인스턴스 scope로 요청한다', async () => {
+    vi.setSystemTime(new Date('2025-10-01'));
+
+    const deleteScopes: string[] = [];
+    let events: Event[] = [recurringEvent];
+
+    server.use(
+      http.get('/api/events', () => {
+        return HttpResponse.json({ events });
+      }),
+      http.delete('/api/events/repeat-id', async ({ request }) => {
+        const url = new URL(request.url);
+        deleteScopes.push(url.searchParams.get('scope') ?? '');
+        events = [];
+        return HttpResponse.json({ success: true });
+      })
+    );
+
+    const { user } = setup(<App />);
+
+    await screen.findByText('일정 로딩 완료!');
+
+    await user.click(await screen.findByLabelText('Delete event'));
+
+    const deleteDialog = await screen.findByRole('dialog', { name: '반복 일정 삭제' });
+    await user.click(within(deleteDialog).getByRole('button', { name: '예' }));
+
+    await waitFor(() => expect(deleteScopes).toContain('instance'));
+  });
+
+  it('반복 일정 전체 삭제 시 시리즈 scope로 요청한다', async () => {
+    vi.setSystemTime(new Date('2025-10-01'));
+
+    const deleteScopes: string[] = [];
+    let events: Event[] = [recurringEvent];
+
+    server.use(
+      http.get('/api/events', () => {
+        return HttpResponse.json({ events });
+      }),
+      http.delete('/api/events/repeat-id', async ({ request }) => {
+        const url = new URL(request.url);
+        deleteScopes.push(url.searchParams.get('scope') ?? '');
+        events = [];
+        return HttpResponse.json({ success: true });
+      })
+    );
+
+    const { user } = setup(<App />);
+
+    await screen.findByText('일정 로딩 완료!');
+
+    await user.click(await screen.findByLabelText('Delete event'));
+
+    const deleteDialog = await screen.findByRole('dialog', { name: '반복 일정 삭제' });
+    await user.click(within(deleteDialog).getByRole('button', { name: '아니오' }));
+
+    await waitFor(() => expect(deleteScopes).toContain('series'));
   });
 });
 
