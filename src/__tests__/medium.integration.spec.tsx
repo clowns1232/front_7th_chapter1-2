@@ -189,6 +189,43 @@ describe('일정 뷰', () => {
     const januaryFirstCell = within(monthView).getByText('1').closest('td')!;
     expect(within(januaryFirstCell).getByText('신정')).toBeInTheDocument();
   });
+
+  it('반복 일정은 캘린더 뷰에서 아이콘으로 표시된다', async () => {
+    vi.setSystemTime(new Date('2025-10-01'));
+    server.use(
+      http.get('/api/events', () => {
+        return HttpResponse.json({
+          events: [
+            {
+              id: 'repeat-id',
+              title: '주간 점검',
+              date: '2025-10-02',
+              startTime: '10:00',
+              endTime: '11:00',
+              description: '반복 회의',
+              location: '회의실 A',
+              category: '업무',
+              repeat: { type: 'weekly', interval: 1 },
+              notificationTime: 10,
+            },
+          ],
+        });
+      })
+    );
+
+    const { user } = setup(<App />);
+
+    await screen.findByText('일정 로딩 완료!');
+
+    const monthView = within(screen.getByTestId('month-view'));
+    expect(await monthView.findByLabelText('반복 일정 아이콘')).toBeInTheDocument();
+
+    await user.click(within(screen.getByLabelText('뷰 타입 선택')).getByRole('combobox'));
+    await user.click(screen.getByRole('option', { name: 'week-option' }));
+
+    const weekView = within(await screen.findByTestId('week-view'));
+    expect(await weekView.findByLabelText('반복 일정 아이콘')).toBeInTheDocument();
+  });
 });
 
 describe('검색 기능', () => {
