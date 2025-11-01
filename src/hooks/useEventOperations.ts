@@ -23,10 +23,7 @@ export const useEventOperations = (editing: boolean, onSave?: () => void) => {
     }
   };
 
-  const saveEvent = async (
-    eventData: Event | EventForm,
-    options?: { scope?: RecurrenceScope }
-  ) => {
+  const saveEvent = async (eventData: Event | EventForm, options?: { scope?: RecurrenceScope }) => {
     try {
       let response;
       const payload = options?.scope ? { ...eventData, scope: options.scope } : eventData;
