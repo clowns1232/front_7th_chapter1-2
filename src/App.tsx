@@ -194,6 +194,7 @@ function App() {
         }
         await fetchEvents();
         closeScopeDialog(false);
+        // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
       } catch (error) {
         enqueueSnackbar('반복 일정 업데이트에 실패했습니다.', { variant: 'error' });
         closeScopeDialog();
@@ -219,7 +220,7 @@ function App() {
 
     const normalizedInterval = repeatInterval === 0 ? 1 : repeatInterval;
 
-    const eventId = editingEvent ? scopeTargetId ?? editingEvent.id : undefined;
+    const eventId = editingEvent ? (scopeTargetId ?? editingEvent.id) : undefined;
 
     const eventData: Event | EventForm = {
       id: eventId,
@@ -711,16 +712,16 @@ function App() {
               <Box key={event.id} sx={{ border: 1, borderRadius: 2, p: 3, width: '100%' }}>
                 <Stack direction="row" justifyContent="space-between">
                   <Stack>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    {notifiedEvents.includes(event.id) && <Notifications color="error" />}
-                    {event.repeat.type !== 'none' && (
-                      <Repeat fontSize="small" aria-label="반복 일정 아이콘" />
-                    )}
-                    <Typography
-                      fontWeight={notifiedEvents.includes(event.id) ? 'bold' : 'normal'}
-                      color={notifiedEvents.includes(event.id) ? 'error' : 'inherit'}
-                    >
-                      {event.title}
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      {notifiedEvents.includes(event.id) && <Notifications color="error" />}
+                      {event.repeat.type !== 'none' && (
+                        <Repeat fontSize="small" aria-label="반복 일정 아이콘" />
+                      )}
+                      <Typography
+                        fontWeight={notifiedEvents.includes(event.id) ? 'bold' : 'normal'}
+                        color={notifiedEvents.includes(event.id) ? 'error' : 'inherit'}
+                      >
+                        {event.title}
                       </Typography>
                     </Stack>
                     <Typography>{event.date}</Typography>
@@ -767,7 +768,7 @@ function App() {
 
       <Dialog
         open={Boolean(repeatScopeDialog)}
-        onClose={(_, __) => closeScopeDialog()}
+        onClose={() => closeScopeDialog()}
         aria-labelledby="repeat-scope-dialog-title"
       >
         <DialogTitle id="repeat-scope-dialog-title">
@@ -806,7 +807,7 @@ function App() {
             onClick={() => {
               setIsOverlapDialogOpen(false);
               const scopeOption = editingEvent ? editScope : null;
-              const eventId = editingEvent ? scopeTargetId ?? editingEvent.id : undefined;
+              const eventId = editingEvent ? (scopeTargetId ?? editingEvent.id) : undefined;
               const normalizedInterval = repeatInterval === 0 ? 1 : repeatInterval;
               void saveEvent(
                 {

@@ -190,6 +190,7 @@ describe('일정 뷰', () => {
     expect(within(januaryFirstCell).getByText('신정')).toBeInTheDocument();
   });
 
+  // codex: 반복 일정은 캘린더 뷰에서 아이콘으로 표기해야 한다.
   it('반복 일정은 캘린더 뷰에서 아이콘으로 표시된다', async () => {
     vi.setSystemTime(new Date('2025-10-01'));
     server.use(
@@ -229,6 +230,9 @@ describe('일정 뷰', () => {
 });
 
 describe('반복 일정', () => {
+  // codex: 일정 생성 또는 수정 시 반복 유형을 선택할 수 있다.
+  // codex: 반복 종료 조건을 지정할 수 있으며 2025-12-31까지가 상한이다.
+  // codex: 일정 생성/수정 시 반복 유형 선택 플로우
   it('반복 일정을 생성할 때 반복 옵션과 종료일을 설정할 수 있다', async () => {
     vi.setSystemTime(new Date('2025-10-01'));
     setupMockHandlerCreation();
@@ -268,7 +272,9 @@ describe('반복 일정', () => {
   });
 });
 
+// codex: 반복 일정 수정
 describe('반복 일정 수정/삭제', () => {
+  // codex: 반복 일정 편집/삭제 시 범위 선택 규칙 검증
   afterEach(() => {
     server.resetHandlers();
   });
@@ -286,6 +292,7 @@ describe('반복 일정 수정/삭제', () => {
     notificationTime: 10,
   };
 
+  // codex: ‘해당 일정만 수정하시겠어요?’에서 ‘예’를 선택하면 단일 수정으로 처리하며 반복 아이콘이 사라진다.
   it('반복 일정 단일 수정 시 반복 정보가 제거되고 아이콘이 사라진다', async () => {
     vi.setSystemTime(new Date('2025-10-01'));
 
@@ -299,6 +306,7 @@ describe('반복 일정 수정/삭제', () => {
       http.put('/api/events/repeat-id', async ({ request }) => {
         const body = (await request.json()) as Event & { scope?: 'instance' | 'series' };
         updateScopes.push(body.scope);
+        // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
         const { scope: _, ...eventPayload } = body;
         events = [
           {
@@ -334,6 +342,7 @@ describe('반복 일정 수정/삭제', () => {
     expect(eventList.queryByText(/반복:/)).not.toBeInTheDocument();
   });
 
+  // codex: ‘해당 일정만 수정하시겠어요?’에서 ‘아니오’를 선택하면 전체 수정으로 반복 아이콘을 유지한다.
   it('반복 일정 전체 수정 시 반복 아이콘과 정보가 유지된다', async () => {
     vi.setSystemTime(new Date('2025-10-01'));
 
@@ -347,6 +356,7 @@ describe('반복 일정 수정/삭제', () => {
       http.put('/api/events/repeat-id', async ({ request }) => {
         const body = (await request.json()) as Event & { scope?: 'instance' | 'series' };
         updateScopes.push(body.scope);
+        // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
         const { scope: _, ...eventPayload } = body;
         events = [
           {
@@ -384,6 +394,7 @@ describe('반복 일정 수정/삭제', () => {
     expect(eventList.getByText('반복: 3주마다 (종료: 2025-12-31)')).toBeInTheDocument();
   });
 
+  // codex: ‘해당 일정만 삭제하시겠어요?’에서 ‘예’를 선택하면 단일 인스턴스만 삭제한다.
   it('반복 일정 단일 삭제 시 인스턴스 scope로 요청한다', async () => {
     vi.setSystemTime(new Date('2025-10-01'));
 
@@ -414,6 +425,7 @@ describe('반복 일정 수정/삭제', () => {
     await waitFor(() => expect(deleteScopes).toContain('instance'));
   });
 
+  // codex: ‘해당 일정만 삭제하시겠어요?’에서 ‘아니오’를 선택하면 전체 반복 일정을 삭제한다.
   it('반복 일정 전체 삭제 시 시리즈 scope로 요청한다', async () => {
     vi.setSystemTime(new Date('2025-10-01'));
 

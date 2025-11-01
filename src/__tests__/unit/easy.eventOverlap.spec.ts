@@ -143,6 +143,7 @@ describe('isOverlapping', () => {
 });
 
 describe('findOverlappingEvents', () => {
+  // codex: 반복 일정은 겹침 검사 대상에서 제외한다.
   const baseEvents: Event[] = [
     {
       id: '1',
